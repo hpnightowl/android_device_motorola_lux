@@ -169,7 +169,7 @@ BOARD_USES_STML0XX_SENSOR_HUB := true
 TARGET_LD_SHIM_LIBS := \
     /system/vendor/lib/libril-qc-qmi-1.so|libcutils_shim.so \
     /system/vendor/lib/libmdmcutback.so|libqsap_shim.so \
-    /system/vendor/lib/libmot_sensorlistener.so|libsensor.so \
+    /system/vendor/lib/libmot_sensorlistener.so|libshims_camera.so \
     /system/vendor/lib/libjustshoot.so|libshims_camera.so \
     /system/vendor/lib/libmmcamera_wavelet_lib.so|libc_util.so \
     /system/vendor/lib/libizat_core.so|libshims_get_process_name.so \

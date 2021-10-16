@@ -39,8 +39,8 @@ include $(BUILD_SHARED_LIBRARY)
 
 # Camera
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := MediaCodec.cpp AudioSource.cpp MetaData.cpp justshoot_shim.cpp
-LOCAL_SHARED_LIBRARIES := libstagefright libmedia libutils
+LOCAL_SRC_FILES := MediaCodec.cpp AudioSource.cpp MetaData.cpp justshoot_shim.cpp SensorManager.cpp
+LOCAL_SHARED_LIBRARIES := libstagefright libmedia libutils libsensor
 LOCAL_MODULE := libshims_camera
 LOCAL_MODULE_TAGS := optional
 LOCAL_VENDOR_MODULE := true

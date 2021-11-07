@@ -155,6 +155,10 @@ PRODUCT_PROPERTY_OVERRIDES += \
     persist.data.df.iwlan_mux=9 \
     persist.data.df.dev_name=rmnet_usb0
 
+# System
+PRODUCT_PROPERTY_OVERRIDES += \
+    ro.vndk.version=current
+
 # Timeout failed shutdowns
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.build.shutdown_timeout=5

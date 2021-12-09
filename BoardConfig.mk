@@ -174,7 +174,8 @@ TARGET_LD_SHIM_LIBS := \
     /system/vendor/lib/libmmcamera_wavelet_lib.so|libc_util.so \
     /system/vendor/lib/libizat_core.so|libshims_get_process_name.so \
     /system/vendor/lib/libqomx_jpegenc.so|libboringssl-compat.so \
-    /system/vendor/lib/libmmqjpeg_codec.so|libboringssl-compat.so
+    /system/vendor/lib/libmmqjpeg_codec.so|libboringssl-compat.so \
+    /system/vendor/lib/libimsmedia_jni.so|libshims_ims.so
 
 # Sensor-shim
 TARGET_LD_SHIM_LIBS += \

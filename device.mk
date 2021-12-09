@@ -199,7 +199,8 @@ PRODUCT_PACKAGES += \
     qti-telephony-hidl-wrapper \
     qti_telephony_hidl_wrapper.xml \
     qti-telephony-utils \
-    qti_telephony_utils.xml
+    qti_telephony_utils.xml \
+    libshims_ims
 
 PRODUCT_BOOT_JARS += \
     ims-ext-common_system

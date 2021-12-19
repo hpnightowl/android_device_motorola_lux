@@ -7,4 +7,6 @@ namespace android {
     extern "C" void _ZN7android9StopWatchC1EPKcij(const char* name, int clock, uint32_t flags __unused) {
         _ZN7android9StopWatchC1EPKci(name, clock);
     }
+
+    extern "C" void _ZN7android10MediaMuxerC1EiNS0_12OutputFormatE() {}
 }

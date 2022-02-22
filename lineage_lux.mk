@@ -14,6 +14,8 @@
 # limitations under the License.
 
 $(call inherit-product, device/motorola/lux/device.mk)
+$(call inherit-product, $(SRC_TARGET_DIR)/product/product_launched_with_l_mr1.mk)
+$(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)
 
 # Boot animation
 TARGET_SCREEN_WIDTH := 1080

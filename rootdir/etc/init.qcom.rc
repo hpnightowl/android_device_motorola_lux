@@ -1,0 +1,537 @@
+# Copyright (c) 2009-2012, 2014, The Linux Foundation. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#     * Redistributions of source code must retain the above copyright
+#       notice, this list of conditions and the following disclaimer.
+#     * Redistributions in binary form must reproduce the above copyright
+#       notice, this list of conditions and the following disclaimer in the
+#       documentation and/or other materials provided with the distribution.
+#     * Neither the name of The Linux Foundation nor
+#       the names of its contributors may be used to endorse or promote
+#       products derived from this software without specific prior written
+#       permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NON-INFRINGEMENT ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+# OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+
+import /vendor/etc/init/hw/init.mmi.usb.rc
+import /vendor/etc/init/hw/init.target.rc
+
+on early-init
+
+    # Mount debugfs
+    mount debugfs debugfs /sys/kernel/debug
+    chown system system /sys/kernel/debug
+    chmod 0775 /sys/kernel/debug
+    chown system graphics /sys/devices/virtual/graphics/fb0/idle_time
+
+on init
+
+    # Full speed for bootup
+    write /sys/module/msm_thermal/core_control/enabled 0
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor "performance"
+    write /sys/module/msm_thermal/core_control/enabled 1
+    write /sys/class/devfreq/1c00000.qcom,kgsl-3d0/governor "performance"
+    write /sys/class/devfreq/qcom,cpubw.30/governor "performance"
+
+on fs
+    wait /dev/block/platform/soc.0/${ro.boot.bootdevice}
+    symlink /dev/block/platform/soc.0/${ro.boot.bootdevice} /dev/block/bootdevice
+
+    mount_all /vendor/etc/fstab.qcom --early
+
+    # set up a symbolic link so the many references to the old location still work and the java code can remain platform agnostic.
+    symlink /dev/block/bootdevice /dev/block/platform/msm_sdcc.1
+
+    mkdir /persist/data 0700  system system
+    restorecon_recursive /persist
+
+    setprop persist.adb.nonblocking_ffs 0
+    setprop ro.adb.nonblocking_ffs 0
+
+on late-fs
+    # Start services for bootanim
+    start servicemanager
+    start vendor.configstore-hal
+    start surfaceflinger
+    start bootanim
+    start vendor.gralloc-2-0
+
+    # Mount RW partitions which need run fsck
+    mount_all /vendor/etc/fstab.qcom --late
+
+on early-boot
+    # set RLIMIT_MEMLOCK to 64MB
+    setrlimit 8 67108864 67108864
+    write /sys/kernel/boot_adsp/boot 1
+
+    start vendor.qseecomd
+
+on boot
+    #Create QMUX deamon socket area
+    mkdir /dev/socket/qmux_radio 0770 radio radio
+    chmod 2770 /dev/socket/qmux_radio
+    mkdir /dev/socket/qmux_audio 0770 media audio
+    chmod 2770 /dev/socket/qmux_audio
+    mkdir /dev/socket/qmux_bluetooth 0770 bluetooth bluetooth
+    chmod 2770 /dev/socket/qmux_bluetooth
+    mkdir /dev/socket/qmux_gps 0770 gps gps
+    chmod 2770 /dev/socket/qmux_gps
+
+    # Create NETMGR daemon socket area
+    mkdir /dev/socket/netmgr 0750 radio radio
+
+    # Prevents permission denied error for telephony
+    chmod 0644 /proc/cmdline
+
+    mkdir /persist/bluetooth 0770 bluetooth bluetooth
+
+    # Assign TCP buffer thresholds to be ceiling value of technology maximums
+    # Increased technology maximums should be reflected here.
+    write /proc/sys/net/core/rmem_max  8388608
+    write /proc/sys/net/core/wmem_max  8388608
+
+    #To allow interfaces to get v6 address when tethering is enabled
+    write /proc/sys/net/ipv6/conf/rmnet0/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet1/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet2/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet3/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet4/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet5/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet6/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet7/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet_sdio0/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet_sdio1/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet_sdio2/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet_sdio3/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet_sdio4/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet_sdio5/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet_sdio6/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet_sdio7/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet_usb0/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet_usb1/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet_usb2/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet_usb3/accept_ra 2
+
+    # To prevent out of order acknowledgements from making
+    # connection tracking to treat them as not belonging to
+    # the connection they belong to.
+    # Otherwise, a weird issue happens in which some long
+    # connections on high-throughput links get dropped when
+    # an ack packet comes out of order
+    write /proc/sys/net/netfilter/nf_conntrack_tcp_be_liberal 1
+
+    # Allow access for CCID command/response timeout configuration
+    chown system system /sys/module/ccid_bridge/parameters/bulk_msg_timeout
+
+    # When GPU woken by touch events, keep it on until first app render
+    write /sys/class/kgsl/kgsl-3d0/wake_timeout 250
+
+    # File flags for prebuilt ril db file
+    write /data/vendor/radio/prebuilt_db_support 1
+    chown radio radio /data/vendor/radio/prebuilt_db_support
+    chmod 0400 /data/vendor/radio/prebuilt_db_support
+    write /data/vendor/radio/db_check_done 0
+    chown radio radio /data/vendor/radio/db_check_done
+    chmod 0660 /data/vendor/radio/db_check_done
+
+    # Copy prebuilt qcril.db files always
+    trigger copy_qcril_db
+
+    start rmt_storage
+
+    # set permission for Dynamic-CABC feature
+    chown system system /sys/class/graphics/fb0/cabc_mode
+
+    # Create directory used by display clients
+    mkdir /data/misc/display 0770 system graphics
+    mkdir /persist/display 0770 system graphics
+
+    # Change ownership and permission for backlight
+    chown system system /sys/class/backlight/lcd-backlight:0/brightness
+    chmod 0664 /sys/class/backlight/lcd-backlight:0/brightness
+    chown system system /sys/class/backlight/lcd-backlight:0/max_brightness
+    chmod 0664 /sys/class/backlight/lcd-backlight:0/max_brightness
+    chmod 0664 /sys/class/leds/lcd-backlight/brightness
+
+    # Change the ownership of the OneWire bus interface
+    chown camera camera /sys/devices/w1_bus_master1/w1_master_search
+    chmod 0664 /sys/devices/w1_bus_master1/w1_master_search
+
+    # Quiet binder logs
+    write /sys/module/binder/parameters/debug_mask 0x5
+
+    # STML0XX driver parameter permissions
+    chown root oem_5004 /sys/module/stml0xx/parameters/irq_disable
+    chmod 0660 /sys/module/stml0xx/parameters/irq_disable
+
+    # charging driver parameter permissions
+    chown root oem_5004 /sys/module/fan5404x_charger/parameters/factory_kill_disable
+    chmod 0660 /sys/module/fan5404x_charger/parameters/factory_kill_disable
+
+    # usb driver parameter permissions
+    chown root oem_5004 /sys/module/phy_msm_usb/parameters/host_mode_disable
+    chmod 0660 /sys/module/phy_msm_usb/parameters/host_mode_disable
+
+    # Wifi firmware reload path
+    chown wifi wifi /sys/module/wlan/parameters/fwpath
+
+on post-fs
+    mkdir /persist/camera 0755 oem_5004 oem_5004
+    mkdir /persist/camera/ledcal 0755 camera oem_5004
+    mkdir /persist/factory 0755 oem_5004 oem_5004
+    mkdir /persist/public 0755 oem_5004 oem_5004
+    mkdir /persist/public/atvc 0770 oem_5012 shell
+    mkdir /persist/public/battd 0755 oem_5000 oem_5004
+    mkdir /persist/public/hiddenmenu 0755 radio radio
+    mkdir /persist/public/hiddenmenu/data 0775 system oem_5004
+    mkdir /persist/public/locale 0700 system system
+    mkdir /persist/public/omadm 0700 radio radio
+    mkdir /persist/public/svcs 0770 system system
+    mkdir /persist/wifi 0755 oem_5004 oem_5004
+    mkdir /persist/bt 0755 oem_5004 bluetooth
+    mkdir /persist/wmdrm 0775 oem_5003 oem_5003
+    mkdir /persist/security 02770 oem_5007 oem_5007
+    mkdir /persist/batt_health 0755 oem_5001 oem_5001
+    mkdir /persist/mdm 0770 radio radio
+
+    chown system oem_5004 /persist/public/hiddenmenu/life_calls
+    chown system oem_5004 /persist/public/hiddenmenu/life_timer
+    chown system oem_5004 /persist/public/hiddenmenu/data/mobile_data_tx
+    chown system oem_5004 /persist/public/hiddenmenu/data/mobile_data_rx
+    chown system oem_5004 /persist/public/hiddenmenu/data/wifi_data_tx
+    chown system oem_5004 /persist/public/hiddenmenu/data/wifi_data_rx
+    chown system oem_5004 /persist/public/hiddenmenu/data/pri_rate_intfc
+    chown system oem_5004 /persist/public/hiddenmenu/data/refurb_date
+    chown system oem_5004 /persist/public/hiddenmenu/data/refurb_status
+    chown system oem_5004 /persist/public/hiddenmenu/data/activation_date
+    chown system oem_5004 /persist/public/hiddenmenu/data/factoryreset_time
+
+    chmod 0664 /persist/public/hiddenmenu/life_calls
+    chmod 0664 /persist/public/hiddenmenu/life_timer
+    chmod 0664 /persist/public/hiddenmenu/data/mobile_data_tx
+    chmod 0664 /persist/public/hiddenmenu/data/mobile_data_rx
+    chmod 0664 /persist/public/hiddenmenu/data/wifi_data_tx
+    chmod 0664 /persist/public/hiddenmenu/data/wifi_data_rx
+    chmod 0644 /persist/public/hiddenmenu/data/pri_rate_intfc
+    chmod 0644 /persist/public/hiddenmenu/data/refurb_date
+    chmod 0644 /persist/public/hiddenmenu/data/refurb_status
+    chmod 0664 /persist/public/hiddenmenu/data/activation_date
+    chmod 0664 /persist/public/hiddenmenu/data/factoryreset_time
+
+    chown oem_5004 oem_5004 /persist/factory/fti
+    chmod 0660 /persist/factory/fti
+    chown oem_5004 oem_5004 /persist/factory/byte
+    chmod 0660 /persist/factory/byte
+    chmod 0660 /persist/wifi/wlan_mac.bin
+    chown oem_5004 oem_5004 /persist/bt/bt_bdaddr
+    chmod 0664 /persist/bt/bt_bdaddr
+    chmod 0600 /persist/whisper/whisper_only/vector0.bin
+
+    write /proc/sys/vm/page-cluster 0
+    write /proc/sys/vm/swappiness 100
+
+    # Allow writing to the kernel trace log.
+    chmod 0222 /sys/kernel/debug/tracing/trace_marker
+
+    start vendor.qseecomd
+
+# msm specific files that need to be created on /data
+on post-fs-data
+    mkdir /data/misc/camera 0770 camera camera
+
+    # Create directory used by audio subsystem
+    mkdir /data/misc/audio 0770 audio audio
+
+    # Create directory for audio delta files
+    mkdir /data/misc/audio/acdbdata 0770 media audio
+    mkdir /data/misc/audio/acdbdata/delta 0770 media audio
+
+    mkdir /data/vendor/ramdump 0771 root system
+    mkdir /data/vendor/bluetooth 0770 bluetooth bluetooth
+    mkdir /data/vendor/ramdump/bluetooth 0770 bluetooth bluetooth
+
+    # Create the directories used by the Wireless subsystem
+    mkdir /data/vendor/wifi 0770 wifi wifi
+    mkdir /data/vendor/wifi/sockets 0770 wifi wifi
+    mkdir /data/vendor/wifi/hostapd/ctrl 0770 wifi wifi
+    mkdir /data/vendor/wifi/wpa 0770 wifi wifi
+    mkdir /data/vendor/wifi/wpa/sockets 0770 wifi wifi
+    mkdir /data/vendor/wifi/wpa_supplicant 0770 wifi wifi
+
+    # Create directories for Location services
+    mkdir /data/misc/location 0770 gps gps
+    mkdir /data/misc/location/mq 0770 gps gps
+    mkdir /data/misc/location/xtwifi 0770 gps gps
+    mkdir /data/misc/location/gpsone_d 0770 system gps
+    mkdir /data/misc/location/quipc 0770 gps system
+    mkdir /data/misc/location/gsiff 0770 gps gps
+
+    mkdir /data/audio/ 0770 media audio
+
+    setprop vold.post_fs_data_done 1
+
+    # Create folder for mm-qcamera-daemon
+    mkdir /data/camera 0770 media camera
+
+    # Create directory for cutback
+    mkdir /data/misc/cutback 0770 radio wifi
+
+    #create netmgr log dir
+    mkdir /data/vendor/netmgr 0770 radio radio
+    chmod 0770 /data/vendor/netmgr
+
+    #Create directory for radio
+    mkdir /data/vendor/radio 0770 system radio
+
+    # Permissions for Factory Test of Charging Paths
+    chown oem_5001 oem_5001 /sys/class/power_supply/battery/device/force_chg_auto_enable
+    chown oem_5001 oem_5001 /sys/class/power_supply/battery/device/force_chg_ibatt
+    chown oem_5001 oem_5001 /sys/class/power_supply/battery/device/force_chg_itrick
+    chown oem_5001 oem_5001 /sys/class/power_supply/battery/device/force_chg_iusb
+    chown oem_5001 oem_5001 /sys/class/power_supply/battery/device/force_chg_usb_suspend
+    chown oem_5001 oem_5001 /sys/class/power_supply/battery/device/force_chg_fail_clear
+    chown oem_5001 oem_5001 /sys/class/power_supply/battery/device/force_chg_usb_otg_ctl
+
+    # Setup folder for camera HAL subsystem
+    mkdir /data/camera_dump 0750 media media
+
+    mkdir /data/tombstones/modem 0771 system system
+    mkdir /data/tombstones/lpass 0771 system system
+    mkdir /data/tombstones/dsps 0771 system system
+    mkdir /persist/data/sfs 0700 system system
+    mkdir /persist/data/tz 0700 system system
+
+    # Force all SSR systems to 'related' so they attempt self-recovery without
+    # rebooting the device
+    write /sys/bus/msm_subsys/devices/subsys0/restart_level related
+    write /sys/bus/msm_subsys/devices/subsys1/restart_level related
+    write /sys/bus/msm_subsys/devices/subsys2/restart_level related
+
+    setprop ro.hw.device ${ro.boot.device}
+    setprop ro.hw.hwrev ${ro.boot.hwrev}
+    setprop ro.hw.radio ${ro.boot.radio}
+
+# Start Sensor daemon
+service stml0xx /vendor/bin/stml0xx_wrapper.sh
+    class late_start
+    user compass
+    group compass misc input
+    oneshot
+
+service mmi-boot-sh /vendor/bin/init.mmi.boot.sh
+    class core
+    user root
+    group root radio
+    oneshot
+
+service mmi-bt-sh /vendor/bin/init.mmi.bt.sh
+    class main
+    user root
+    group root system
+    oneshot
+
+service mmi-touch-sh /vendor/bin/init.mmi.touch.sh synaptics
+    class core
+    user root
+    group root system oem_5004
+    oneshot
+
+service wcnss-service /vendor/bin/wcnss_service
+    class main
+    user system
+    group system wifi radio
+
+#start camera server as daemon
+service vendor.qcamerasvr /vendor/bin/mm-qcamera-daemon
+    class late_start
+    user camera
+    group camera system inet input graphics
+    writepid /dev/cpuset/camera-daemon/tasks
+
+on property:init.svc.vendor.qcamerasvr=running
+    restart media
+
+service charger /system/bin/charger
+    class charger
+    user system
+    group system graphics input
+    capabilities SYS_BOOT
+    seclabel u:r:charger:s0
+
+# Allow usb charging to be disabled peristently
+on property:persist.usb.chgdisabled=1
+    write /sys/class/power_supply/battery/charging_enabled 0
+
+on property:persist.usb.chgdisabled=0
+    write /sys/class/power_supply/battery/charging_enabled 1
+
+service vendor.qseecomd /vendor/bin/qseecomd
+   class core
+   user root
+   group root
+
+service thermal-engine /vendor/bin/thermal-engine
+   class main
+   user root
+   socket thermal-send-client stream 0666 system system
+   socket thermal-recv-client stream 0660 system system
+   socket thermal-recv-passive-client stream 0666 system system
+   group root
+
+service thermal-com /vendor/bin/thermal-engine --minimode
+    class main
+    user root
+    disabled
+
+service irsc_util /vendor/bin/irsc_util "/vendor/etc/sec_config"
+    class main
+    user root
+    oneshot
+
+service rmt_storage /vendor/bin/rmt_storage
+    class core
+    user root
+    group system wakelock
+    disabled
+    shutdown critical
+
+on property:ro.boot.emmc=true
+    start rmt_storage
+
+# FM
+on property:hw.fm.init=0
+    write /sys/module/radio_iris_transport/parameters/fmsmd_set 0
+
+on property:hw.fm.init=1
+    write /sys/module/radio_iris_transport/parameters/fmsmd_set 1
+
+# QMUX must be in multiple groups to support external process connections
+service qmuxd /vendor/bin/qmuxd
+    class main
+    user root
+    group radio audio bluetooth gps nfc oem_2950
+
+service netmgrd /vendor/bin/netmgrd
+    class main
+    user root
+    group root wifi wakelock radio inet oem_2950
+
+service ril-daemon2 /vendor/bin/hw/rild -c 2
+    class main
+    user radio
+    disabled
+    group radio cache inet misc audio log readproc wakelock
+    capabilities BLOCK_SUSPEND NET_ADMIN NET_RAW
+
+on property:persist.radio.multisim.config=dsds
+    enable ril-daemon2
+
+on property:persist.radio.multisim.config=dsda
+    enable ril-daemon2
+
+on copy_qcril_db
+    copy /vendor/radio/qcril_database/qcril.db /data/vendor/radio/qcril.db
+    chown radio radio /data/vendor/radio/qcril.db
+    write /data/vendor/radio/db_check_done 1
+
+on property:sys.wifi.tethering=true
+    write /sys/class/net/wlan0/queues/rx-0/rps_cpus ${sys.usb.rps_mask}
+    write /sys/class/net/wlan0/queues/rx-1/rps_cpus ${sys.usb.rps_mask}
+    write /sys/class/net/wlan0/queues/rx-2/rps_cpus ${sys.usb.rps_mask}
+    write /sys/class/net/wlan0/queues/rx-3/rps_cpus ${sys.usb.rps_mask}
+
+service vendor.imsdatadaemon /vendor/bin/imsdatadaemon
+    class main
+    user radio
+    socket ims_datad stream 0660 system radio
+    group radio wifi radio inet log diag
+    disabled
+
+on property:vendor.ims.QMI_DAEMON_STATUS=1
+    start vendor.imsdatadaemon
+
+service vendor.ims_rtp_daemon /vendor/bin/ims_rtp_daemon
+    class main
+    user radio
+    socket ims_rtpd stream 0660 system radio
+    group radio diag inet log
+    disabled
+
+on property:vendor.ims.DATA_DAEMON_STATUS=1
+    start vendor.ims_rtp_daemon
+
+service vendor.imsqmidaemon /vendor/bin/imsqmidaemon
+    class main
+    user radio
+    socket ims_qmid stream 0660 system radio
+    group radio log diag
+
+on property:ro.hw.revision=*
+    setprop ro.boot.hardware.revision ${ro.hw.revision}
+
+on charger
+    trigger moto-charger
+
+service vendor.per_mgr /vendor/bin/pm-service
+    class core
+    user system
+    group system
+
+service vendor.per_proxy /vendor/bin/pm-proxy
+    class core
+    user system
+    group system
+    disabled
+
+on property:init.svc.vendor.per_mgr=running
+    start vendor.per_proxy
+
+on property:sys.shutdown.requested=*
+    stop vendor.per_proxy
+
+service ppd /vendor/bin/mm-pp-daemon
+    class hal
+    user system
+    socket pps stream 0660 system system
+    group system graphics
+
+on moto-charger
+    setprop ro.board.platform msm8916
+
+    # HMP scheduler settings
+    write /proc/sys/kernel/sched_ravg_hist_size 3
+    write /proc/sys/kernel/sched_window_stats_policy 3
+
+    # HMP Task packing settings for 8916
+    write /proc/sys/kernel/sched_small_task 50
+
+    # disable thermal core_control to update scaling_min_freq
+    write /sys/module/msm_thermal/core_control/enabled 0
+    write /sys/devices/system/cpu/cpu0/online 1
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor "powersave"
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq 200000
+    # enable thermal core_control now
+    write /sys/module/msm_thermal/core_control/enabled 1
+
+    # Set Battery LED behavior
+    write /sys/class/leds/charging/trigger "battery-full"
+
+    start thermal-com
+    write /sys/module/lpm_levels/parameters/sleep_disabled 0
+
+on property:sys.boot_completed=1
+    # Enable ZRAM on boot_complete
+    swapon_all /vendor/etc/fstab.qcom
+    restart vendor.qcamerasvr
